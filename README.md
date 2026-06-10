@@ -1,0 +1,93 @@
+# 석차계산기
+
+요약통계량만으로 내 점수의 예상 석차, 상위 백분율, 누적 백분위를 계산하는 프론트엔드 단독 웹 계산기입니다. 원자료나 외부 API를 사용하지 않습니다.
+
+## 계산 방식
+
+필수 입력값은 내 점수, 평균, 표준편차, 표본수입니다. 선택 입력값으로 Q1, Q2, Q3, min, max를 모두 입력하고 `min <= Q1 < Q2 < Q3 <= max` 조건을 만족하면 분위수 기반 근사분포를 사용하고, 그렇지 않으면 평균과 표준편차를 이용한 정규분포 가정을 사용합니다.
+
+점수가 높을수록 좋은 경우에는 `upperProb = 1 - p`, 점수가 낮을수록 좋은 경우에는 `upperProb = p`로 계산합니다. 예상 석차는 `1 + (n - 1) * upperProb`입니다.
+
+## 정규분포 모드
+
+Q1, Q2, Q3, min, max가 모두 유효하게 입력되지 않은 경우 사용합니다.
+
+`X ~ N(mean, sd^2)`를 가정하고 `z = (score - mean) / sd`, `p = Phi(z)`를 계산합니다. JavaScript에 기본 `erf`가 없으므로 `src/lib/normal.ts`에 오차함수 근사식과 정규분포 CDF를 직접 구현했습니다.
+
+## 분위수 기반 모드
+
+Q1, Q2, Q3, min, max가 모두 입력되고 `min <= Q1 < Q2 < Q3 <= max` 조건을 만족하면 사용합니다. 단, `min = Q1` 또는 `Q3 = max`는 허용되며, Q1, Q2, Q3는 서로 다른 값이라고 가정합니다.
+
+다음 점들을 잇는 구간별 선형 누적분포함수로 `p`를 근사합니다.
+
+- `(min, 0)`
+- `(Q1, 0.25)`
+- `(Q2, 0.50)`
+- `(Q3, 0.75)`
+- `(max, 1)`
+
+score가 min 이하이면 `p = 0`, max 이상이면 `p = 1`로 처리합니다.
+
+분위수 기반 모드에서는 [min,Q1], [Q1,Q2], [Q2,Q3], [Q3,max] 네 구간에 각각 25%의 확률질량이 있다고 보고, 각 구간 내부는 균등분포로 근사합니다. 이를 통해 분위수 기반 근사분포의 평균과 표준편차를 계산하고, 사용자가 입력한 평균·표준편차와의 일관성을 점검합니다.
+
+## 입력값 검증 기준
+
+- score는 숫자여야 합니다.
+- mean은 숫자여야 합니다.
+- sd는 0보다 커야 합니다.
+- n은 2 이상의 정수여야 합니다.
+- 분위수 기반 모드에서는 `min <= Q1 < Q2 < Q3 <= max`를 만족해야 합니다.
+- min과 max가 입력된 경우 평균이 범위 밖이면 경고를 표시합니다.
+- min과 max가 입력된 경우 내 점수가 범위 밖이면 경고를 표시하되 계산은 진행합니다.
+- n < 30이면 표본수가 작다는 경고를 표시합니다.
+- 평균과 Q2 차이가 표준편차보다 크면 분포 비대칭 가능성 경고를 표시합니다.
+- 분위수 기반 근사분포에서 계산한 implied mean과 입력 평균이 크게 다르면 경고를 표시합니다.
+- 분위수 기반 근사분포에서 계산한 implied sd와 입력 표준편차가 크게 다르면 경고를 표시합니다.
+- Q1, Q2, Q3, min, max 중 일부만 입력되면 분위수 기반 계산에 필요한 값이 부족하다는 경고를 표시합니다.
+
+## 실행 방법
+
+```bash
+cd rank-calculator
+npm install
+npm run dev
+```
+
+## 테스트 방법
+
+```bash
+cd rank-calculator
+npm install
+npm test
+```
+
+## GitHub Pages 배포 방법
+
+- GitHub repository 이름이 rank-calculator인 경우 vite.config.ts의 base는 /rank-calculator/로 설정한다.
+- GitHub repository Settings → Pages → Source에서 GitHub Actions를 선택한다.
+- main 브랜치에 push하면 GitHub Actions가 자동으로 npm test, npm run build를 실행한 뒤 dist를 GitHub Pages에 배포한다.
+- 배포 주소는 https://<GITHUB_USERNAME>.github.io/rank-calculator/ 형태이다.
+
+## 파일 구조
+
+```text
+src/
+  App.tsx
+  components/
+    InputForm.tsx
+    ResultCard.tsx
+    WarningBox.tsx
+  lib/
+    normal.ts
+    quantile.ts
+    rank.ts
+    validation.ts
+  types/
+    rank.ts
+  styles/
+    App.css
+```
+
+## 한계
+
+이 계산기는 원자료가 아닌 요약통계량 기반 추정이므로 실제 석차와 다를 수 있습니다. Q값이 있어도 실제 분포를 완전히 복원할 수 없으며, 결과는 확정 석차가 아니라 근사 추정에 따른 예상 석차입니다. 입력한 평균·표준편차와 분위수 정보가 서로 일관되지 않을 경우, 계산 결과의 불확실성이 커질 수 있습니다.
