@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
+import { CombinedExamForm } from "./components/CombinedExamForm";
 import { InputForm } from "./components/InputForm";
 import { ResultCard } from "./components/ResultCard";
 import { WarningBox } from "./components/WarningBox";
+import { calculateMixedDistributionCDF } from "./lib/mixedDistribution";
 import { normalCDF } from "./lib/normal";
 import { quantileCDF } from "./lib/quantile";
 import { probabilityToRank } from "./lib/rank";
-import { validateInputs } from "./lib/validation";
-import type { RankInputs } from "./types/rank";
+import { validateCombinedInputs, validateInputs } from "./lib/validation";
+import type { CombinedRankInputs, ExamInputs, RankInputs } from "./types/rank";
 
 const initialInputs: RankInputs = {
   score: "",
@@ -21,11 +23,38 @@ const initialInputs: RankInputs = {
   direction: "higher",
 };
 
+const emptyExamInputs: ExamInputs = {
+  score: "",
+  mean: "",
+  sd: "",
+  q1: "",
+  q2: "",
+  q3: "",
+  min: "",
+  max: "",
+};
+
+const initialCombinedInputs: CombinedRankInputs = {
+  midterm: { ...emptyExamInputs },
+  finalExam: { ...emptyExamInputs },
+  midtermWeight: "40",
+  finalWeight: "60",
+  n: "",
+  direction: "higher",
+};
+
 export default function App() {
+  const [calculatorMode, setCalculatorMode] = useState<"single" | "combined">("single");
   const [inputs, setInputs] = useState<RankInputs>(initialInputs);
+  const [combinedInputs, setCombinedInputs] =
+    useState<CombinedRankInputs>(initialCombinedInputs);
 
   const validation = useMemo(() => validateInputs(inputs), [inputs]);
-  const result = useMemo(() => {
+  const combinedValidation = useMemo(
+    () => validateCombinedInputs(combinedInputs),
+    [combinedInputs],
+  );
+  const singleResult = useMemo(() => {
     if (!validation.parsed || !validation.mode || validation.errors.length > 0) {
       return undefined;
     }
@@ -50,13 +79,53 @@ export default function App() {
     return probabilityToRank(p, parsed.n, parsed.direction, mode);
   }, [validation]);
 
-  const warnings = [...validation.warnings];
+  const combinedResult = useMemo(() => {
+    if (!combinedValidation.parsed || combinedValidation.errors.length > 0) {
+      return undefined;
+    }
+
+    const mixed = calculateMixedDistributionCDF(combinedValidation.parsed);
+    return probabilityToRank(
+      mixed.cumulativeProbability,
+      combinedValidation.parsed.n,
+      combinedValidation.parsed.direction,
+      "mixed",
+    );
+  }, [combinedValidation]);
+
+  const activeValidation =
+    calculatorMode === "single" ? validation : combinedValidation;
+  const result = calculatorMode === "single" ? singleResult : combinedResult;
+  const activeN =
+    calculatorMode === "single" ? validation.parsed?.n : combinedValidation.parsed?.n;
+  const warnings = [...activeValidation.warnings];
   if (result?.rangeIsUnstable) {
     warnings.push("불확실성 범위가 불안정할 수 있습니다.");
   }
 
   function handleChange(field: keyof RankInputs, value: string) {
     setInputs((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleCombinedChange(
+    field: "midtermWeight" | "finalWeight" | "n" | "direction",
+    value: string,
+  ) {
+    setCombinedInputs((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleCombinedExamChange(
+    exam: "midterm" | "finalExam",
+    field: keyof ExamInputs,
+    value: string,
+  ) {
+    setCombinedInputs((current) => ({
+      ...current,
+      [exam]: {
+        ...current[exam],
+        [field]: value,
+      },
+    }));
   }
 
   return (
@@ -71,18 +140,47 @@ export default function App() {
         </p>
       </header>
 
+      <div className="mode-switch" role="tablist" aria-label="계산기 모드">
+        <button
+          type="button"
+          className={calculatorMode === "single" ? "active" : ""}
+          onClick={() => setCalculatorMode("single")}
+        >
+          단일 시험
+        </button>
+        <button
+          type="button"
+          className={calculatorMode === "combined" ? "active" : ""}
+          onClick={() => setCalculatorMode("combined")}
+        >
+          중간+기말
+        </button>
+      </div>
+
       <div className="layout">
-        <InputForm inputs={inputs} onChange={handleChange} />
+        {calculatorMode === "single" ? (
+          <InputForm inputs={inputs} onChange={handleChange} />
+        ) : (
+          <CombinedExamForm
+            inputs={combinedInputs}
+            onChange={handleCombinedChange}
+            onExamChange={handleCombinedExamChange}
+          />
+        )}
         <div className="side-column">
-          <WarningBox errors={validation.errors} warnings={warnings} />
-          {!validation.isRequiredComplete && (
+          <WarningBox errors={activeValidation.errors} warnings={warnings} />
+          {!activeValidation.isRequiredComplete && (
             <section className="panel empty-state">
               <h2>필수 입력값을 입력하세요</h2>
-              <p>내 점수, 평균, 표준편차, 표본수가 모두 있어야 결과가 표시됩니다.</p>
+              <p>
+                {calculatorMode === "single"
+                  ? "내 점수, 평균, 표준편차, 표본수가 모두 있어야 결과가 표시됩니다."
+                  : "중간고사와 기말고사의 내 점수, 평균, 표준편차, 표본수, 가중치가 모두 있어야 결과가 표시됩니다."}
+              </p>
             </section>
           )}
-          {validation.isRequiredComplete && result && validation.parsed && (
-            <ResultCard result={result} n={validation.parsed.n} />
+          {activeValidation.isRequiredComplete && result && activeN !== undefined && (
+            <ResultCard result={result} n={activeN} />
           )}
         </div>
       </div>
@@ -96,6 +194,10 @@ export default function App() {
         <p>
           Q값이 있어도 실제 분포를 완전히 복원할 수 없으므로 결과는 확정 석차가
           아니라 근사 추정에 따른 예상 석차입니다.
+        </p>
+        <p>
+          중간+기말 모드는 두 시험 분포가 독립이라고 가정하고 가중합 분포를 근사합니다.
+          실제 두 시험 점수의 상관관계가 크면 결과가 달라질 수 있습니다.
         </p>
       </section>
     </main>

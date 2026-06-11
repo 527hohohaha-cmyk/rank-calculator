@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { calculateMixedDistributionCDF, weightedNormalMoments } from "../lib/mixedDistribution";
 import { normalCDF } from "../lib/normal";
 import { getQuantileDistributionMoments, quantileCDF } from "../lib/quantile";
 import { probabilityToRank } from "../lib/rank";
-import { validateInputs } from "../lib/validation";
+import { validateCombinedInputs, validateInputs } from "../lib/validation";
 
 describe("normalCDF", () => {
   it("returns about 0.5 at the mean", () => {
@@ -69,6 +70,50 @@ describe("probabilityToRank", () => {
     const higherP = probabilityToRank(0.4, 100, "lower", "normal");
 
     expect(lowerP.expectedRank).toBeLessThan(higherP.expectedRank);
+  });
+});
+
+describe("calculateMixedDistributionCDF", () => {
+  const combinedInputs = {
+    midterm: {
+      score: 80,
+      mean: 70,
+      sd: 10,
+      mode: "normal" as const,
+    },
+    finalExam: {
+      score: 90,
+      mean: 80,
+      sd: 10,
+      mode: "normal" as const,
+    },
+    midtermWeight: 40,
+    finalWeight: 60,
+    normalizedMidtermWeight: 0.4,
+    normalizedFinalWeight: 0.6,
+    finalScore: 86,
+    n: 100,
+    direction: "higher" as const,
+  };
+
+  it("calculates weighted normal moments", () => {
+    const moments = weightedNormalMoments(combinedInputs);
+
+    expect(moments.mean).toBeCloseTo(76);
+    expect(moments.sd).toBeCloseTo(Math.sqrt(52));
+  });
+
+  it("returns about 0.5 at the weighted mean for normal exams", () => {
+    const input = {
+      ...combinedInputs,
+      midterm: { ...combinedInputs.midterm, score: 70 },
+      finalExam: { ...combinedInputs.finalExam, score: 80 },
+      finalScore: 76,
+    };
+    const result = calculateMixedDistributionCDF(input);
+
+    expect(result.cumulativeProbability).toBeCloseTo(0.5, 3);
+    expect(result.method).toBe("normal");
   });
 });
 
@@ -145,5 +190,53 @@ describe("validateInputs", () => {
     expect(result.warnings).toContain(
       "입력한 표준편차와 분위수 기반 근사분포의 표준편차가 다소 차이납니다. 실제 분포 추정의 불확실성이 커질 수 있습니다.",
     );
+  });
+});
+
+describe("validateCombinedInputs", () => {
+  const baseInputs = {
+    midterm: {
+      score: "80",
+      mean: "70",
+      sd: "10",
+      q1: "",
+      q2: "",
+      q3: "",
+      min: "",
+      max: "",
+    },
+    finalExam: {
+      score: "90",
+      mean: "80",
+      sd: "10",
+      q1: "",
+      q2: "",
+      q3: "",
+      min: "",
+      max: "",
+    },
+    midtermWeight: "40",
+    finalWeight: "60",
+    n: "100",
+    direction: "higher" as const,
+  };
+
+  it("normalizes weights and calculates the final score", () => {
+    const result = validateCombinedInputs(baseInputs);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.parsed?.normalizedMidtermWeight).toBeCloseTo(0.4);
+    expect(result.parsed?.normalizedFinalWeight).toBeCloseTo(0.6);
+    expect(result.parsed?.finalScore).toBeCloseTo(86);
+  });
+
+  it("rejects zero total weight", () => {
+    const result = validateCombinedInputs({
+      ...baseInputs,
+      midtermWeight: "0",
+      finalWeight: "0",
+    });
+
+    expect(result.errors).toContain("중간고사와 기말고사 가중치의 합은 0보다 커야 합니다.");
   });
 });

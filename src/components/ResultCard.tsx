@@ -6,7 +6,12 @@ interface ResultCardProps {
 }
 
 export function ResultCard({ result, n }: ResultCardProps) {
-  const modeLabel = result.mode === "normal" ? "정규분포 가정" : "분위수 기반 근사분포";
+  const modeLabel =
+    result.mode === "normal"
+      ? "정규분포 가정"
+      : result.mode === "quantile"
+        ? "분위수 기반 근사분포"
+        : "중간+기말 가중합 근사분포";
 
   return (
     <section className="panel result-panel" aria-labelledby="result-title">

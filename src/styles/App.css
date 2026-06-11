@@ -75,6 +75,33 @@ input {
   align-items: start;
 }
 
+.mode-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 6px;
+  margin: 0 0 20px;
+  padding: 5px;
+  border: 1px solid #d4dfdc;
+  border-radius: 8px;
+  background: #eaf1ef;
+}
+
+.mode-switch button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4c6066;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.mode-switch button.active {
+  background: #173f47;
+  color: white;
+  box-shadow: 0 8px 18px rgba(23, 63, 71, 0.16);
+}
+
 .side-column {
   display: grid;
   gap: 16px;
@@ -183,6 +210,14 @@ input {
 .optional-block {
   display: grid;
   gap: 14px;
+  padding-top: 20px;
+  border-top: 1px solid #e1e8e6;
+}
+
+.exam-block {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid #e1e8e6;
 }
@@ -344,7 +379,8 @@ input {
   .field-grid,
   .field-grid.compact,
   .metric-grid,
-  .segmented {
+  .segmented,
+  .mode-switch {
     grid-template-columns: 1fr;
   }
 
