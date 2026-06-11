@@ -22,7 +22,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -175,6 +176,45 @@ input {
   outline: none;
 }
 
+.paste-box {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 22px;
+  padding: 16px;
+  border: 1px solid #d9e4e1;
+  border-radius: 8px;
+  background: #f7fbfa;
+}
+
+.paste-box h3 {
+  font-size: 18px;
+}
+
+.helper-text {
+  margin: 8px 0 0;
+  color: #5b6f75;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.paste-box textarea {
+  width: 100%;
+  min-height: 108px;
+  resize: vertical;
+  border: 1px solid #c8d5d1;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+  color: #172126;
+  line-height: 1.5;
+  outline: none;
+}
+
+.paste-box textarea:focus {
+  border-color: #1d7580;
+  box-shadow: 0 0 0 3px rgba(29, 117, 128, 0.14);
+}
+
 .field input:focus {
   border-color: #1d7580;
   box-shadow: 0 0 0 3px rgba(29, 117, 128, 0.14);
@@ -212,6 +252,45 @@ input {
   gap: 14px;
   padding-top: 20px;
   border-top: 1px solid #e1e8e6;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.form-actions.compact-actions {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+.primary-action,
+.secondary-action {
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.primary-action {
+  border: 1px solid #174e59;
+  background: #174e59;
+  color: white;
+}
+
+.secondary-action {
+  border: 1px solid #c8d5d1;
+  background: white;
+  color: #27464c;
+}
+
+.secondary-action.danger {
+  border-color: #e5bbb5;
+  color: #9d3b31;
 }
 
 .exam-block {

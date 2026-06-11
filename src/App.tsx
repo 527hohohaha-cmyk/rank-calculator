@@ -5,12 +5,13 @@ import { ResultCard } from "./components/ResultCard";
 import { WarningBox } from "./components/WarningBox";
 import { calculateMixedDistributionCDF } from "./lib/mixedDistribution";
 import { normalCDF } from "./lib/normal";
+import { parsePastedRankInputs } from "./lib/pasteParser";
 import { quantileCDF } from "./lib/quantile";
 import { probabilityToRank } from "./lib/rank";
 import { validateCombinedInputs, validateInputs } from "./lib/validation";
 import type { CombinedRankInputs, ExamInputs, RankInputs } from "./types/rank";
 
-const initialInputs: RankInputs = {
+const defaultInputs: RankInputs = {
   score: "",
   mean: "",
   sd: "",
@@ -45,9 +46,10 @@ const initialCombinedInputs: CombinedRankInputs = {
 
 export default function App() {
   const [calculatorMode, setCalculatorMode] = useState<"single" | "combined">("single");
-  const [inputs, setInputs] = useState<RankInputs>(initialInputs);
+  const [inputs, setInputs] = useState<RankInputs>(defaultInputs);
   const [combinedInputs, setCombinedInputs] =
     useState<CombinedRankInputs>(initialCombinedInputs);
+  const [pasteWarnings, setPasteWarnings] = useState<string[]>([]);
 
   const validation = useMemo(() => validateInputs(inputs), [inputs]);
   const combinedValidation = useMemo(
@@ -98,18 +100,41 @@ export default function App() {
   const result = calculatorMode === "single" ? singleResult : combinedResult;
   const activeN =
     calculatorMode === "single" ? validation.parsed?.n : combinedValidation.parsed?.n;
-  const warnings = [...activeValidation.warnings];
+  const warnings = [
+    ...activeValidation.warnings,
+    ...(calculatorMode === "single" ? pasteWarnings : []),
+  ];
   if (result?.rangeIsUnstable) {
     warnings.push("불확실성 범위가 불안정할 수 있습니다.");
   }
 
-  function handleChange(field: keyof RankInputs, value: string) {
+  function handleChange(field: keyof RankInputs, value: string | RankInputs["direction"]) {
+    setPasteWarnings([]);
     setInputs((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleReset() {
+    setInputs(defaultInputs);
+    setPasteWarnings([]);
+  }
+
+  function handleApplyPastedText(text: string) {
+    const parsed = parsePastedRankInputs(text);
+    setPasteWarnings(parsed.warnings);
+
+    if (Object.keys(parsed.values).length === 0) {
+      return;
+    }
+
+    setInputs((current) => ({
+      ...current,
+      ...parsed.values,
+    }));
   }
 
   function handleCombinedChange(
     field: "midtermWeight" | "finalWeight" | "n" | "direction",
-    value: string,
+    value: string | RankInputs["direction"],
   ) {
     setCombinedInputs((current) => ({ ...current, [field]: value }));
   }
@@ -159,7 +184,13 @@ export default function App() {
 
       <div className="layout">
         {calculatorMode === "single" ? (
-          <InputForm inputs={inputs} onChange={handleChange} />
+          <InputForm
+            inputs={inputs}
+            onChange={handleChange}
+            onReset={handleReset}
+            onApplyPastedText={handleApplyPastedText}
+            onClearPasteWarnings={() => setPasteWarnings([])}
+          />
         ) : (
           <CombinedExamForm
             inputs={combinedInputs}

@@ -1,8 +1,12 @@
+import { useState } from "react";
 import type { RankInputs, ScoreDirection } from "../types/rank";
 
 interface InputFormProps {
   inputs: RankInputs;
   onChange: (field: keyof RankInputs, value: string | ScoreDirection) => void;
+  onReset: () => void;
+  onApplyPastedText: (text: string) => void;
+  onClearPasteWarnings: () => void;
 }
 
 const requiredFields: Array<{
@@ -28,7 +32,30 @@ const optionalFields: Array<{
   { id: "max", label: "max", placeholder: "최댓값" },
 ];
 
-export function InputForm({ inputs, onChange }: InputFormProps) {
+export function InputForm({
+  inputs,
+  onChange,
+  onReset,
+  onApplyPastedText,
+  onClearPasteWarnings,
+}: InputFormProps) {
+  const [pasteText, setPasteText] = useState("");
+
+  function handleApplyPaste() {
+    onApplyPastedText(pasteText);
+  }
+
+  function handleClearPasteText() {
+    setPasteText("");
+    onClearPasteWarnings();
+  }
+
+  function handleReset() {
+    setPasteText("");
+    onClearPasteWarnings();
+    onReset();
+  }
+
   return (
     <section className="panel input-panel" aria-labelledby="input-title">
       <div className="panel-header">
@@ -39,6 +66,32 @@ export function InputForm({ inputs, onChange }: InputFormProps) {
         <span className="mode-pill">
           {inputs.direction === "higher" ? "높을수록 좋음" : "낮을수록 좋음"}
         </span>
+      </div>
+
+      <div className="paste-box">
+        <div>
+          <p className="eyebrow">복사붙여넣기 자동 입력</p>
+          <h3>복사붙여넣기 자동 입력</h3>
+          <p className="helper-text">
+            엑셀, 메모장, 카카오톡 등에서 복사한 값을 붙여넣으면 입력칸에 자동 반영할 수 있습니다.
+          </p>
+        </div>
+        <textarea
+          value={pasteText}
+          onChange={(event) => setPasteText(event.target.value)}
+          placeholder={
+            "예: 내 점수 80 평균 70 표준편차 10 표본수 100 Q1 60 Q2 70 Q3 80 min 40 max 100\n또는 엑셀에서 80 70 10 100 60 70 80 40 100 순서로 붙여넣기"
+          }
+          rows={4}
+        />
+        <div className="form-actions compact-actions">
+          <button type="button" className="primary-action" onClick={handleApplyPaste}>
+            붙여넣기 적용
+          </button>
+          <button type="button" className="secondary-action" onClick={handleClearPasteText}>
+            내용 지우기
+          </button>
+        </div>
       </div>
 
       <div className="field-grid">
@@ -90,6 +143,12 @@ export function InputForm({ inputs, onChange }: InputFormProps) {
             </label>
           ))}
         </div>
+      </div>
+
+      <div className="form-actions">
+        <button type="button" className="secondary-action danger" onClick={handleReset}>
+          초기화
+        </button>
       </div>
     </section>
   );

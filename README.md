@@ -58,6 +58,44 @@ score가 min 이하이면 `p = 0`, max 이상이면 `p = 1`로 처리합니다.
 - 중간+기말 모드에서 가중치 합이 1 또는 100이 아니면 자동 정규화 경고를 표시합니다.
 - 중간+기말 모드에서는 두 시험 분포의 독립 가정 경고를 표시합니다.
 
+## 입력 편의 기능
+
+입력 폼의 `초기화` 버튼을 누르면 내 점수, 평균, 표준편차, 표본수, Q1, Q2, Q3, min, max가 모두 비워지고 점수 방향은 기본값인 높은 점수가 유리한 설정으로 돌아갑니다.
+
+`복사붙여넣기 자동 입력` 영역에는 엑셀, 메모장, 카카오톡 등에서 복사한 텍스트를 붙여넣고 `붙여넣기 적용`을 누를 수 있습니다. 숫자만 붙여넣는 경우 다음 순서로 해석합니다.
+
+```text
+score, mean, sd, n, q1, q2, q3, min, max
+```
+
+예시:
+
+```text
+80 70 10 100 60 70 80 40 100
+```
+
+쉼표, 탭, 줄바꿈 구분도 지원합니다.
+
+라벨 기반 붙여넣기도 지원합니다.
+
+```text
+내 점수: 80
+평균: 70
+표준편차: 10
+표본수: 100
+Q1: 60
+Q2: 70
+Q3: 80
+min: 40
+max: 100
+```
+
+영어 라벨 예시:
+
+```text
+score=80 mean=70 sd=10 n=100
+```
+
 ## 실행 방법
 
 ```bash
@@ -87,10 +125,12 @@ npm test
 src/
   App.tsx
   components/
+    CombinedExamForm.tsx
     InputForm.tsx
     ResultCard.tsx
     WarningBox.tsx
   lib/
+    pasteParser.ts
     normal.ts
     quantile.ts
     mixedDistribution.ts
