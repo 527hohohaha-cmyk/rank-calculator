@@ -5,11 +5,11 @@ import { ResultCard } from "./components/ResultCard";
 import { WarningBox } from "./components/WarningBox";
 import { calculateMixedDistributionCDF } from "./lib/mixedDistribution";
 import { normalCDF } from "./lib/normal";
-import { parsePastedRankInputs } from "./lib/pasteParser";
+import { parsePastedExamInputs, parsePastedRankInputs } from "./lib/pasteParser";
 import { quantileCDF } from "./lib/quantile";
 import { probabilityToRank } from "./lib/rank";
 import { validateCombinedInputs, validateInputs } from "./lib/validation";
-import type { CombinedRankInputs, ExamInputs, RankInputs } from "./types/rank";
+import type { CombinedRankInputs, ExamInputs, RankInputs, RankResult } from "./types/rank";
 
 const defaultInputs: RankInputs = {
   score: "",
@@ -50,19 +50,31 @@ export default function App() {
   const [combinedInputs, setCombinedInputs] =
     useState<CombinedRankInputs>(initialCombinedInputs);
   const [pasteWarnings, setPasteWarnings] = useState<string[]>([]);
+  const [combinedPasteWarnings, setCombinedPasteWarnings] = useState<string[]>([]);
 
   const validation = useMemo(() => validateInputs(inputs), [inputs]);
   const combinedValidation = useMemo(
     () => validateCombinedInputs(combinedInputs),
     [combinedInputs],
   );
-  const singleResult = useMemo(() => {
+  const singleResults = useMemo((): RankResult[] | undefined => {
     if (!validation.parsed || !validation.mode || validation.errors.length > 0) {
       return undefined;
     }
 
     const { parsed, mode } = validation;
-    const p =
+    const normalResult = probabilityToRank(
+      normalCDF(parsed.score, parsed.mean, parsed.sd),
+      parsed.n,
+      parsed.direction,
+      "normal",
+    );
+
+    if (mode !== "quantile") {
+      return [normalResult];
+    }
+
+    const quantileP =
       mode === "quantile" &&
       parsed.min !== undefined &&
       parsed.q1 !== undefined &&
@@ -76,35 +88,44 @@ export default function App() {
             q3: parsed.q3,
             max: parsed.max,
           })
-        : normalCDF(parsed.score, parsed.mean, parsed.sd);
+        : undefined;
 
-    return probabilityToRank(p, parsed.n, parsed.direction, mode);
+    if (quantileP === undefined) {
+      return [normalResult];
+    }
+
+    return [
+      probabilityToRank(quantileP, parsed.n, parsed.direction, "quantile"),
+      normalResult,
+    ];
   }, [validation]);
 
-  const combinedResult = useMemo(() => {
+  const combinedResults = useMemo((): RankResult[] | undefined => {
     if (!combinedValidation.parsed || combinedValidation.errors.length > 0) {
       return undefined;
     }
 
     const mixed = calculateMixedDistributionCDF(combinedValidation.parsed);
-    return probabilityToRank(
-      mixed.cumulativeProbability,
-      combinedValidation.parsed.n,
-      combinedValidation.parsed.direction,
-      "mixed",
-    );
+    return [
+      probabilityToRank(
+        mixed.cumulativeProbability,
+        combinedValidation.parsed.n,
+        combinedValidation.parsed.direction,
+        "mixed",
+      ),
+    ];
   }, [combinedValidation]);
 
   const activeValidation =
     calculatorMode === "single" ? validation : combinedValidation;
-  const result = calculatorMode === "single" ? singleResult : combinedResult;
+  const results = calculatorMode === "single" ? singleResults : combinedResults;
   const activeN =
     calculatorMode === "single" ? validation.parsed?.n : combinedValidation.parsed?.n;
   const warnings = [
     ...activeValidation.warnings,
-    ...(calculatorMode === "single" ? pasteWarnings : []),
+    ...(calculatorMode === "single" ? pasteWarnings : combinedPasteWarnings),
   ];
-  if (result?.rangeIsUnstable) {
+  if (results?.some((result) => result.rangeIsUnstable)) {
     warnings.push("불확실성 범위가 불안정할 수 있습니다.");
   }
 
@@ -136,6 +157,7 @@ export default function App() {
     field: "midtermWeight" | "finalWeight" | "n" | "direction",
     value: string | RankInputs["direction"],
   ) {
+    setCombinedPasteWarnings([]);
     setCombinedInputs((current) => ({ ...current, [field]: value }));
   }
 
@@ -144,11 +166,32 @@ export default function App() {
     field: keyof ExamInputs,
     value: string,
   ) {
+    setCombinedPasteWarnings([]);
     setCombinedInputs((current) => ({
       ...current,
       [exam]: {
         ...current[exam],
         [field]: value,
+      },
+    }));
+  }
+
+  function handleApplyExamPastedText(exam: "midterm" | "finalExam", text: string) {
+    const parsed = parsePastedExamInputs(text);
+    const examLabel = exam === "midterm" ? "중간고사" : "기말고사";
+    setCombinedPasteWarnings(
+      parsed.warnings.map((warning) => `${examLabel}: ${warning}`),
+    );
+
+    if (Object.keys(parsed.values).length === 0) {
+      return;
+    }
+
+    setCombinedInputs((current) => ({
+      ...current,
+      [exam]: {
+        ...current[exam],
+        ...parsed.values,
       },
     }));
   }
@@ -196,6 +239,8 @@ export default function App() {
             inputs={combinedInputs}
             onChange={handleCombinedChange}
             onExamChange={handleCombinedExamChange}
+            onApplyExamPastedText={handleApplyExamPastedText}
+            onClearPasteWarnings={() => setCombinedPasteWarnings([])}
           />
         )}
         <div className="side-column">
@@ -210,8 +255,12 @@ export default function App() {
               </p>
             </section>
           )}
-          {activeValidation.isRequiredComplete && result && activeN !== undefined && (
-            <ResultCard result={result} n={activeN} />
+          {activeValidation.isRequiredComplete && results && activeN !== undefined && (
+            <div className="result-stack">
+              {results.map((result) => (
+                <ResultCard key={result.mode} result={result} n={activeN} />
+              ))}
+            </div>
           )}
         </div>
       </div>

@@ -6,6 +6,7 @@ interface ResultCardProps {
 }
 
 export function ResultCard({ result, n }: ResultCardProps) {
+  const titleId = `result-title-${result.mode}`;
   const modeLabel =
     result.mode === "normal"
       ? "정규분포 가정"
@@ -14,11 +15,11 @@ export function ResultCard({ result, n }: ResultCardProps) {
         : "중간+기말 가중합 근사분포";
 
   return (
-    <section className="panel result-panel" aria-labelledby="result-title">
+    <section className="panel result-panel" aria-labelledby={titleId}>
       <div className="panel-header">
         <div>
           <p className="eyebrow">근사 추정 결과</p>
-          <h2 id="result-title">예상 석차</h2>
+          <h2 id={titleId}>예상 석차</h2>
         </div>
         <span className="mode-pill strong">{modeLabel}</span>
       </div>

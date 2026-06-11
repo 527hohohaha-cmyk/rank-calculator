@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { CombinedRankInputs, ExamInputs, ScoreDirection } from "../types/rank";
 
 interface CombinedExamFormProps {
@@ -11,6 +12,8 @@ interface CombinedExamFormProps {
     field: "midtermWeight" | "finalWeight" | "n" | "direction",
     value: string | ScoreDirection,
   ) => void;
+  onApplyExamPastedText: (exam: "midterm" | "finalExam", text: string) => void;
+  onClearPasteWarnings: () => void;
 }
 
 const requiredFields: Array<{
@@ -39,6 +42,8 @@ export function CombinedExamForm({
   inputs,
   onExamChange,
   onChange,
+  onApplyExamPastedText,
+  onClearPasteWarnings,
 }: CombinedExamFormProps) {
   return (
     <section className="panel input-panel" aria-labelledby="combined-input-title">
@@ -103,11 +108,15 @@ export function CombinedExamForm({
         title="중간고사 분포"
         inputs={inputs.midterm}
         onChange={(field, value) => onExamChange("midterm", field, value)}
+        onApplyPastedText={(text) => onApplyExamPastedText("midterm", text)}
+        onClearPasteWarnings={onClearPasteWarnings}
       />
       <ExamSection
         title="기말고사 분포"
         inputs={inputs.finalExam}
         onChange={(field, value) => onExamChange("finalExam", field, value)}
+        onApplyPastedText={(text) => onApplyExamPastedText("finalExam", text)}
+        onClearPasteWarnings={onClearPasteWarnings}
       />
     </section>
   );
@@ -117,14 +126,54 @@ interface ExamSectionProps {
   title: string;
   inputs: ExamInputs;
   onChange: (field: keyof ExamInputs, value: string) => void;
+  onApplyPastedText: (text: string) => void;
+  onClearPasteWarnings: () => void;
 }
 
-function ExamSection({ title, inputs, onChange }: ExamSectionProps) {
+function ExamSection({
+  title,
+  inputs,
+  onChange,
+  onApplyPastedText,
+  onClearPasteWarnings,
+}: ExamSectionProps) {
+  const [pasteText, setPasteText] = useState("");
+
+  function handleApplyPaste() {
+    onApplyPastedText(pasteText);
+  }
+
+  function handleClearPasteText() {
+    setPasteText("");
+    onClearPasteWarnings();
+  }
+
   return (
     <div className="exam-block">
       <div>
         <p className="eyebrow">시험별 입력</p>
         <h3>{title}</h3>
+      </div>
+      <div className="paste-box compact-paste-box">
+        <p className="helper-text">
+          {title} 값을 복사해 붙여넣으면 이 시험 입력칸에만 반영됩니다.
+        </p>
+        <textarea
+          value={pasteText}
+          onChange={(event) => setPasteText(event.target.value)}
+          placeholder={
+            "예: 내 점수 80 평균 70 표준편차 10 Q1 60 Q2 70 Q3 80 min 40 max 100\n또는 80 70 10 60 70 80 40 100 순서로 붙여넣기"
+          }
+          rows={3}
+        />
+        <div className="form-actions compact-actions">
+          <button type="button" className="primary-action" onClick={handleApplyPaste}>
+            붙여넣기 적용
+          </button>
+          <button type="button" className="secondary-action" onClick={handleClearPasteText}>
+            내용 지우기
+          </button>
+        </div>
       </div>
       <div className="field-grid compact">
         {requiredFields.map((field) => (

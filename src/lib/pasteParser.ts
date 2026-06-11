@@ -1,9 +1,15 @@
-import type { RankInputs } from "../types/rank";
+import type { ExamInputs, RankInputs } from "../types/rank";
 
 type RankPasteField = Exclude<keyof RankInputs, "direction">;
+type ExamPasteField = keyof ExamInputs;
 
 export interface PasteParseResult {
   values: Partial<RankInputs>;
+  warnings: string[];
+}
+
+export interface ExamPasteParseResult {
+  values: Partial<ExamInputs>;
   warnings: string[];
 }
 
@@ -12,6 +18,17 @@ const NUMERIC_FIELDS: RankPasteField[] = [
   "mean",
   "sd",
   "n",
+  "q1",
+  "q2",
+  "q3",
+  "min",
+  "max",
+];
+
+const EXAM_NUMERIC_FIELDS: ExamPasteField[] = [
+  "score",
+  "mean",
+  "sd",
   "q1",
   "q2",
   "q3",
@@ -71,6 +88,45 @@ export function parsePastedRankInputs(text: string): PasteParseResult {
   return { values, warnings };
 }
 
+export function parsePastedExamInputs(text: string): ExamPasteParseResult {
+  const warnings: string[] = [];
+  const trimmed = text.trim();
+
+  if (trimmed === "") {
+    return {
+      values: {},
+      warnings: ["붙여넣기 내용이 비어 있습니다."],
+    };
+  }
+
+  const labelValues = parseLabeledValues(trimmed);
+  const examLabelValues = stripNonExamFields(labelValues);
+  if (Object.keys(examLabelValues).length > 0) {
+    return { values: examLabelValues, warnings };
+  }
+
+  const numbers = extractNumbers(trimmed);
+  if (numbers.length < 3) {
+    return {
+      values: {},
+      warnings: [
+        "시험별 숫자만 붙여넣을 때는 최소한 내 점수, 평균, 표준편차 순서로 3개 이상 입력해야 합니다.",
+      ],
+    };
+  }
+
+  if (numbers.length > EXAM_NUMERIC_FIELDS.length) {
+    warnings.push("시험별 입력 가능한 8개 값을 초과한 숫자는 무시했습니다.");
+  }
+
+  const values: Partial<ExamInputs> = {};
+  numbers.slice(0, EXAM_NUMERIC_FIELDS.length).forEach((value, index) => {
+    values[EXAM_NUMERIC_FIELDS[index]] = value;
+  });
+
+  return { values, warnings };
+}
+
 function parseLabeledValues(text: string): Partial<RankInputs> {
   const values: Partial<RankInputs> = {};
   const aliases = Object.entries(LABELS)
@@ -90,6 +146,16 @@ function parseLabeledValues(text: string): Partial<RankInputs> {
   }
 
   return values;
+}
+
+function stripNonExamFields(values: Partial<RankInputs>): Partial<ExamInputs> {
+  const examValues: Partial<ExamInputs> = {};
+  for (const field of EXAM_NUMERIC_FIELDS) {
+    if (values[field] !== undefined) {
+      examValues[field] = values[field];
+    }
+  }
+  return examValues;
 }
 
 function extractNumbers(text: string): string[] {

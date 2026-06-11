@@ -108,6 +108,11 @@ textarea {
   gap: 16px;
 }
 
+.result-stack {
+  display: grid;
+  gap: 16px;
+}
+
 .panel,
 .notice,
 .caution-box {
@@ -184,6 +189,11 @@ textarea {
   border: 1px solid #d9e4e1;
   border-radius: 8px;
   background: #f7fbfa;
+}
+
+.paste-box.compact-paste-box {
+  margin-bottom: 0;
+  padding: 14px;
 }
 
 .paste-box h3 {
